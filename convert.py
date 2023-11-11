@@ -7,8 +7,7 @@ def convert_to_widget_code(text):
         param_name = match[0]
         param_value = match[1]
         param_config = match[2]
-        widget_type = re.search('type:\\s*"(\w+)"', param_config)
-        if widget_type:
+        if widget_type := re.search('type:\\s*"(\w+)"', param_config):
             widget_type = widget_type.group(1)
             if widget_type == "raw":
                 code += f"{param_name} = {param_value} # CHECKTHIS\n"
@@ -16,10 +15,11 @@ def convert_to_widget_code(text):
                 code += f"{param_name} = widgets.Text(value='{param_value}', description='{param_name}')\n"
             elif widget_type == "number":
                 #split float and int
-                if param_value.is_integer():
-                    code += f"{param_name} = widgets.IntText(value={param_value}, description='{param_name}')\n"
-                else:
-                    code += f"{param_name} = widgets.FloatText(value={param_value}, description='{param_name}')\n"
+                code += (
+                    f"{param_name} = widgets.IntText(value={param_value}, description='{param_name}')\n"
+                    if param_value.is_integer()
+                    else f"{param_name} = widgets.FloatText(value={param_value}, description='{param_name}')\n"
+                )
             elif widget_type == "slider":
                 min_value = re.search("min:(.*?),", param_config)
                 max_value = re.search("max:(.*?),", param_config)
@@ -33,19 +33,18 @@ def convert_to_widget_code(text):
                 code += f"{param_name} = widgets.DatePicker(value='{param_value}', description='{param_name}')\n"
             else:
                 code += f"# Widget type not supported: {widget_type}\n"
+        elif param_config:
+            param_config = re.match(r"(\[.*\])", param_config).group(1)
+            # add for cases where no widget type is specified, but an array of options is given
+            if param_config.startswith("[") and param_config.endswith("]"):
+                options = param_config[1:-1]
+                options = options.split(",")
+                options = [option.strip() for option in options]
+                options = [option.strip('"') for option in options]
+                code += f"{param_name} = widgets.Dropdown(options={options}, value='{param_value}', description='{param_name}')\n"
         else:
-            if param_config:
-                param_config = re.match(r"(\[.*\])", param_config).group(1)
-                # add for cases where no widget type is specified, but an array of options is given
-                if param_config.startswith("[") and param_config.endswith("]"):
-                    options = param_config[1:-1]
-                    options = options.split(",")
-                    options = [option.strip() for option in options]
-                    options = [option.strip('"') for option in options]
-                    code += f"{param_name} = widgets.Dropdown(options={options}, value='{param_value}', description='{param_name}')\n"
-            else:
-                code += f"\n# Widget configuration not supported: {param_config}\n"
-                code += f"{param_name} = '{param_value}'  # No widget configuration\n\n"
+            code += f"\n# Widget configuration not supported: {param_config}\n"
+            code += f"{param_name} = '{param_value}'  # No widget configuration\n\n"
 
     return code
 
